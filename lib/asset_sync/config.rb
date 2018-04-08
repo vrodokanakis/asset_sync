@@ -17,6 +17,7 @@ module AssetSync
     attr_accessor :always_upload
     attr_accessor :ignored_files
     attr_accessor :prefix
+    attr_accessor :bucket_prefix
     attr_accessor :public_path
     attr_accessor :enabled
     attr_accessor :custom_headers
@@ -151,6 +152,14 @@ module AssetSync
       self.prefix || ::Rails.application.config.assets.prefix.sub(/^\//, '')
     end
 
+    def bucket_prefix
+      @bucket_prefix || assets_prefix
+    end
+
+    def bucket_prefix?
+      bucket_prefix != assets_prefix
+    end
+
     def public_path
       @public_path || ::Rails.public_path
     end
@@ -185,6 +194,7 @@ module AssetSync
       self.cdn_distribution_id    = yml['cdn_distribution_id'] if yml.has_key?("cdn_distribution_id")
       self.cache_asset_regexps    = yml['cache_asset_regexps'] if yml.has_key?("cache_asset_regexps")
       self.include_manifest       = yml['include_manifest'] if yml.has_key?("include_manifest")
+      self.bucket_prefix          = yml["bucket_prefix"] if yml.has_key?("bucket_prefix")
 
       self.azure_storage_account_name = yml['azure_storage_account_name'] if yml.has_key?("azure_storage_account_name")
       self.azure_storage_access_key   = yml['azure_storage_access_key'] if yml.has_key?("azure_storage_access_key")

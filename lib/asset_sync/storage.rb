@@ -22,7 +22,7 @@ module AssetSync
 
     def bucket
       # fixes: https://github.com/rumblelabs/asset_sync/issues/18
-      @bucket ||= connection.directories.get(self.config.fog_directory, :prefix => self.config.assets_prefix)
+      @bucket ||= connection.directories.get(self.config.fog_directory, :prefix => self.config.bucket_prefix)
     end
 
     def log(msg)
@@ -43,7 +43,7 @@ module AssetSync
 
     def get_manifest_path
       return [] unless self.config.include_manifest
-        
+
       if ActionView::Base.respond_to?(:assets_manifest)
         manifest = Sprockets::Manifest.new(ActionView::Base.assets_manifest.environment, ActionView::Base.assets_manifest.dir)
         manifest_path = manifest.filename
@@ -129,7 +129,15 @@ module AssetSync
       log "Fetching files to flag for delete"
       remote_files = get_remote_files
       # fixes: https://github.com/rumblelabs/asset_sync/issues/19
-      from_remote_files_to_delete = remote_files - local_files - ignored_files - always_upload_files
+      files = local_files + ignored_files + always_upload_files
+      from_remote_files_to_delete = remote_files.select { |remote_file|
+        if self.config.bucket_prefix?
+          remote_file = remote_file.gsub(self.config.bucket_prefix, "")
+          remote_file.sub!("/", "") if remote_file.start_with?("/")
+        end
+
+        !files.include?(remote_file)
+      }
 
       log "Flagging #{from_remote_files_to_delete.size} file(s) for deletion"
       # Delete unneeded remote files
@@ -145,8 +153,15 @@ module AssetSync
       mime = MultiMime.lookup(ext)
       gzip_file_handle = nil
       file_handle = File.open("#{path}/#{f}")
+
+      key = if self.config.bucket_prefix?
+        [self.config.bucket_prefix, f].join("/")
+      else
+        f
+      end
+
       file = {
-        :key => f,
+        :key => key,
         :body => file_handle,
         :public => true,
         :content_type => mime
